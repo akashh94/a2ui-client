@@ -27,7 +27,7 @@ gcloud artifacts repositories describe "$ARTIFACT_REGISTRY" \
 }
 
 echo "Building image: ${IMAGE}"
-docker build -t "$IMAGE" .
+docker build -t "$IMAGE" --build-arg AGENT_URL="${AGENT_URL}" .
 
 echo "Pushing image..."
 docker push "$IMAGE"
