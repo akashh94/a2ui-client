@@ -2,10 +2,10 @@
 // catalog's components as renderers, sends A2A JSON-RPC messages with the
 // A2UI extension, and renders incoming A2UI DataParts into the #surface div.
 //
-// The agent is a separate service. Its base URL is configurable:
-//   - default to AGENT_URL below (edit for your deployment), or
-//   - override at runtime with /?agent=<agent-url> (set in index.html).
-
+// The agent is a separate service. Its base URL is resolved in this order:
+//   1. /?agent=<agent-url> runtime override (index.html sets A2UI_AGENT_URL),
+//   2. agent_url.js injected at deploy time (per-environment AGENT_URL),
+//   3. fallback below for purely-local use.
 const AGENT_URL = (window.A2UI_AGENT_URL || "https://a2ui-agent-personal-947331501288.us-central1.run.app").replace(/\/$/, "");
 const CARD_URL = `${AGENT_URL}/.well-known/agent-card.json`;
 const CATALOG_URL = `${AGENT_URL}/catalog.json`;

@@ -66,10 +66,12 @@
   </main>
 
   <script>
-    // Optional: /?agent=https://<agent-url> overrides the default AGENT_URL in client.js.
+    // Optional: /?agent=https://<agent-url> overrides the injected default
+    // (agent_url.js, set at deploy time) and the fallback in client.js.
     const agentParam = new URLSearchParams(location.search).get("agent");
     if (agentParam) window.A2UI_AGENT_URL = agentParam;
   </script>
+  <script src="agent_url.js"></script>
   <script src="client.js"></script>
 </body>
 </html>

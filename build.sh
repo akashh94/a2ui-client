@@ -19,3 +19,10 @@ for f in index.html client.js; do
   fi
 done
 echo "static files present: index.html client.js"
+
+# agent_url.js is generated at image build time from the AGENT_URL build arg;
+# it is not in the repo. Warn if a deploy forgot to inject it (a missing file
+# would leave the client pointing at client.js's local fallback).
+if [ ! -f agent_url.js ]; then
+  echo "note: agent_url.js not present (generated at docker build from AGENT_URL)"
+fi

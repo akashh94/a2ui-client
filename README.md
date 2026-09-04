@@ -16,13 +16,16 @@ Pure static HTML/JS — no build step.
 
 ## Which agent does it talk to?
 
-The agent is a **separate service**. Its base URL is configurable:
+The agent is a **separate service**. Its base URL is resolved in this order:
 
-1. **Default** — edit `AGENT_URL` at the top of `client.js` (currently the
-   personal `a2ui-agent-personal` deployment).
-2. **Per-page override** — open
+1. **Per-page override** — open
    `https://<client-url>/?agent=https://<agent-url>`; the query param sets
    `window.A2UI_AGENT_URL` before `client.js` loads.
+2. **Deploy-time injection** — `deploy.sh` / `deploy.personal.sh` pass the
+   environment's `AGENT_URL` (from `a2ui.deploy.env` / `deploy.personal.env`)
+   to `docker build --build-arg`, which writes it into `agent_url.js`.
+3. **Fallback** — the hardcoded personal agent URL at the top of `client.js`
+   (local development only).
 
 The card, catalog, and JSON-RPC URLs all derive from that single agent URL.
 
