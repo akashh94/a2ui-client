@@ -120,6 +120,18 @@ async function sendMessage(text) {
 }
 
 function handleTaskResult(result) {
+  // A failed/malformed turn (e.g. the model emitted the tool call as text)
+  // carries a text part that is NOT a real answer — surface a clean message.
+  const failed =
+    result.status?.state === "failed" ||
+    (result.artifacts || []).some((a) =>
+      (a.parts || []).some((p) => p.text && /malformed function call/i.test(p.text))
+    );
+  if (failed) {
+    log("event", "The agent could not generate the UI (malformed tool call). Please try again.");
+    statusEl.textContent = "failed — try again";
+    return;
+  }
   // result.artifacts[].parts[] and result.history[] carry Text + Data parts.
   const parts = [];
   (result.artifacts || []).forEach((a) => (a.parts || []).forEach((p) => parts.push(p)));
