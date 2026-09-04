@@ -21,7 +21,10 @@ let catalogId = null;
 let surfaceEl = null; // current surface DOM root (per surfaceId)
 const componentEls = new Map(); // component id -> element
 
-// ---- component renderers: catalog component name -> (props, nodeId) => element ----
+// ---- component renderers: catalog component name -> props => element ----
+// NOTE: renderers only CREATE the element. Children are attached afterwards in
+// a separate mount pass (renderA2UI), because components can be listed in any
+// order — a parent may be created before its children exist.
 const renderers = {
   Text: (props) => {
     const el = document.createElement("div");
@@ -32,7 +35,6 @@ const renderers = {
   Button: (props) => {
     const el = document.createElement("button");
     el.className = `a2ui-btn ${props.variant || "default"}`;
-    el.textContent = props.child ? componentText(props.child) : props.label ?? "";
     if (props.action?.event?.name) {
       el.addEventListener("click", () => logEvent(`button clicked: ${props.action.event.name}`));
     }
@@ -43,10 +45,6 @@ const renderers = {
     el.className = "a2ui-row";
     if (props.justify) el.style.justifyContent = justifyToCss(props.justify);
     if (props.align) el.style.alignItems = alignToCss(props.align);
-    (props.children || []).forEach((id) => {
-      const child = componentEls.get(id);
-      if (child) el.appendChild(child);
-    });
     return el;
   },
   Column: (props) => {
@@ -54,10 +52,6 @@ const renderers = {
     el.className = "a2ui-col";
     if (props.justify) el.style.justifyContent = justifyToCss(props.justify);
     if (props.align) el.style.alignItems = alignToCss(props.align);
-    (props.children || []).forEach((id) => {
-      const child = componentEls.get(id);
-      if (child) el.appendChild(child);
-    });
     return el;
   },
   Card: (props) => {
@@ -69,22 +63,18 @@ const renderers = {
       t.textContent = props.title;
       el.appendChild(t);
     }
-    const child = componentEls.get(props.child);
-    if (child) el.appendChild(child);
     return el;
   },
 };
 
-function componentText(id) {
-  const el = componentEls.get(id);
-  return el ? el.textContent : "";
-}
 function justifyToCss(v) {
   return { spaceBetween: "space-between", spaceAround: "space-around", spaceEvenly: "space-evenly" }[v] || v;
 }
 function alignToCss(v) {
   return v;
 }
+// Reference types that hold children by id: component name -> key holding the id(s).
+const CHILD_REF_KEYS = { Button: "child", Card: "child", Row: "children", Column: "children" };
 
 // ---- catalog registration ----
 async function loadCatalog() {
@@ -151,15 +141,19 @@ function renderA2UI(msg) {
     surfaceEl = document.createElement("div");
     surfaceEl.dataset.surfaceId = surfaceId;
     $("surface").replaceChildren(surfaceEl);
+    componentEls.clear();
     log("event", `createSurface ${surfaceId}`);
   } else if (msg.updateComponents) {
     const { components } = msg.updateComponents;
     if (!surfaceEl) {
       surfaceEl = document.createElement("div");
       $("surface").replaceChildren(surfaceEl);
+      componentEls.clear();
     }
-    // register components by id (parents before children per protocol)
+    // Pass 1: create every component element (children are not attached yet).
+    const byId = new Map(components.map((c) => [c.id, c]));
     components.forEach((c) => {
+      if (componentEls.has(c.id)) return; // already rendered (e.g. repeated update)
       const renderer = renderers[c.component];
       if (!renderer) {
         log("event", `no renderer for component '${c.component}'`);
@@ -169,17 +163,35 @@ function renderA2UI(msg) {
       el.dataset.cid = c.id;
       componentEls.set(c.id, el);
     });
-    // attach root: find the component with no parent reference (children/child refs)
+    // Pass 2: mount children into parents (parents may appear before children).
+    components.forEach((c) => {
+      const parent = componentEls.get(c.id);
+      if (!parent) return;
+      if (c.component === "Button") {
+        // A Button's child is its label Text — show the label's text on the button.
+        const label = componentEls.get(c.child);
+        if (label) parent.textContent = label.textContent;
+        return;
+      }
+      const key = CHILD_REF_KEYS[c.component];
+      const refs = key === "children" ? c.children || [] : c.child ? [c.child] : [];
+      refs.forEach((childId) => {
+        const child = componentEls.get(childId);
+        if (child) parent.appendChild(child);
+        else if (byId.has(childId)) log("event", `component '${childId}' has no renderer`);
+      });
+    });
+    // Attach root: find the component with no parent reference (children/child refs).
     const refd = new Set();
     components.forEach((c) => {
-      const list = c.children || (c.child ? [c.child] : []);
-      list.forEach((id) => refd.add(id));
+      const key = CHILD_REF_KEYS[c.component];
+      const refs = key === "children" ? c.children || [] : c.child ? [c.child] : [];
+      refs.forEach((id) => refd.add(id));
     });
-    const roots = components.filter((c) => !refd.has(c.id));
-    const root = roots[0];
+    const root = components.find((c) => !refd.has(c.id));
     if (root) {
       const el = componentEls.get(root.id);
-      surfaceEl.replaceChildren(el);
+      if (el) surfaceEl.replaceChildren(el);
     }
     log("event", `updateComponents (${components.length} components)`);
   }
