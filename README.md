@@ -24,8 +24,10 @@ The agent is a **separate service**. Its base URL is resolved in this order:
 2. **Deploy-time injection** — `deploy.sh` / `deploy.personal.sh` pass the
    environment's `AGENT_URL` (from `a2ui.deploy.env` / `deploy.personal.env`)
    to `docker build --build-arg`, which writes it into `agent_url.js`.
-3. **Fallback** — the hardcoded personal agent URL at the top of `client.js`
-   (local development only).
+
+There is **no hardcoded fallback**: a deploy that forgets to inject the URL
+leaves `AGENT_URL` empty and discovery fails loudly, rather than silently
+pointing at the wrong agent.
 
 The card, catalog, and JSON-RPC URLs all derive from that single agent URL.
 

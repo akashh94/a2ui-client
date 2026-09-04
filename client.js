@@ -4,9 +4,10 @@
 //
 // The agent is a separate service. Its base URL is resolved in this order:
 //   1. /?agent=<agent-url> runtime override (index.html sets A2UI_AGENT_URL),
-//   2. agent_url.js injected at deploy time (per-environment AGENT_URL),
-//   3. fallback below for purely-local use.
-const AGENT_URL = (window.A2UI_AGENT_URL || "https://a2ui-agent-personal-947331501288.us-central1.run.app").replace(/\/$/, "");
+//   2. agent_url.js injected at deploy time (per-environment AGENT_URL).
+// No hardcoded fallback: a deploy that forgets to inject the URL fails
+// loudly at discovery instead of silently pointing at the wrong agent.
+const AGENT_URL = (window.A2UI_AGENT_URL || "").replace(/\/$/, "");
 const CARD_URL = `${AGENT_URL}/.well-known/agent-card.json`;
 const CATALOG_URL = `${AGENT_URL}/catalog.json`;
 const RPC_URL = `${AGENT_URL}/a2a/a2ui_agent`; // A2A JSON-RPC endpoint (single POST)
