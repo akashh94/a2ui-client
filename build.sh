@@ -12,13 +12,13 @@ cd "$PROJECT_ROOT"
 node --check client.js
 echo "client.js: syntax OK"
 
-for f in index.html client.js; do
+for f in index.html client.js serve.py; do
   if [ ! -f "$f" ]; then
     echo "error: missing $f" >&2
     exit 1
   fi
 done
-echo "static files present: index.html client.js"
+echo "static files present: index.html client.js serve.py"
 
 # agent_url.js is generated at image build time from the AGENT_URL build arg;
 # it is not in the repo. Warn if a deploy forgot to inject it (a missing file

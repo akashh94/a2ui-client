@@ -10,7 +10,9 @@ RUN printf 'window.A2UI_AGENT_URL = "%s";\n' "$AGENT_URL" > agent_url.js
 
 COPY index.html .
 COPY client.js .
+COPY serve.py .
 
 EXPOSE 8080
-# Cloud Run injects PORT; http.server binds it directly (no proxy/nginx config).
-CMD python -m http.server "${PORT:-8080}" --bind 0.0.0.0
+# Cloud Run injects PORT. serve.py is http.server with Cache-Control: no-store
+# so a redeploy takes effect without a hard refresh.
+CMD ["python", "serve.py"]

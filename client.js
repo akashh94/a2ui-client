@@ -121,24 +121,31 @@ async function sendMessage(text) {
 }
 
 function handleTaskResult(result) {
-  // A failed/malformed turn (e.g. the model emitted the tool call as text)
-  // carries a text part that is NOT a real answer — surface a clean message.
-  const failed =
-    result.status?.state === "failed" ||
-    (result.artifacts || []).some((a) =>
-      (a.parts || []).some((p) => p.text && /malformed function call/i.test(p.text))
-    );
-  if (failed) {
-    log("event", "The agent could not generate the UI (malformed tool call). Please try again.");
+  // artifacts[] is the agent's final output and history[] echoes the same
+  // parts, so prefer artifacts to avoid logging/rendering everything twice.
+  const artifacts = result.artifacts || [];
+  const parts = [];
+  if (artifacts.length) {
+    artifacts.forEach((a) => (a.parts || []).forEach((p) => parts.push(p)));
+  } else {
+    (result.history || []).forEach((m) => {
+      if (m.role === "agent") (m.parts || []).forEach((p) => parts.push(p));
+    });
+  }
+
+  // A failed turn — or one where the model wrote the tool call as text
+  // instead of making a real function call — carries no Data parts. That text
+  // is not an answer, so ask for a retry instead of dumping the raw call.
+  const hasData = parts.some((p) => p.kind === "data");
+  const bogusCall = parts.some(
+    (p) => p.kind === "text" && /send_a2ui_json_to_client\(|malformed function call/i.test(p.text || "")
+  );
+  if (result.status?.state === "failed" || (bogusCall && !hasData)) {
+    log("event", "The agent could not generate the UI (it wrote the tool call as text instead of calling it). Please try again.");
     statusEl.textContent = "failed — try again";
     return;
   }
-  // result.artifacts[].parts[] and result.history[] carry Text + Data parts.
-  const parts = [];
-  (result.artifacts || []).forEach((a) => (a.parts || []).forEach((p) => parts.push(p)));
-  (result.history || []).forEach((m) => {
-    if (m.role === "agent") (m.parts || []).forEach((p) => parts.push(p));
-  });
+
   parts.forEach((p) => {
     if (p.kind === "text") log("agent", p.text);
     else if (p.kind === "data" && p.data) renderA2UI(p.data);
@@ -237,7 +244,9 @@ async function init() {
 
 $("send").addEventListener("click", () => {
   const v = $("prompt").value.trim();
-  if (v) sendMessage(v);
+  if (!v) return;
+  $("prompt").value = "";
+  sendMessage(v);
 });
 $("prompt").addEventListener("keydown", (e) => { if (e.key === "Enter") $("send").click(); });
 $("demoA2UI").addEventListener("click", () => sendMessage("show me an A2UI demo with a button and some text"));
