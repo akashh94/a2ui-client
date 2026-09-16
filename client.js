@@ -1,6 +1,7 @@
 // Minimal A2UI demo client: discovers the agent card, registers the custom
 // catalog's components as renderers, sends A2A JSON-RPC messages with the
-// A2UI extension, and renders incoming A2UI DataParts into the #surface div.
+// A2UI extension, and renders incoming A2UI DataParts inline in the chat
+// timeline (text and rendered UI share one scrolling transcript).
 //
 // The agent is a separate service. Its base URL is resolved in this order:
 //   1. /?agent=<agent-url> runtime override (index.html sets A2UI_AGENT_URL),
@@ -19,8 +20,9 @@ const statusEl = $("status");
 
 // ---- tiny state ----
 let catalogId = null;
-let surfaceEl = null; // current surface DOM root (per surfaceId)
-const componentEls = new Map(); // component id -> element
+// surfaceId -> { el, componentEls }: each rendered surface lives inline in the
+// chat log, and multiple surfaces can coexist in the timeline.
+const surfaces = new Map();
 
 // ---- component renderers: catalog component name -> props => element ----
 // NOTE: renderers only CREATE the element. Children are attached afterwards in
@@ -153,68 +155,80 @@ function handleTaskResult(result) {
   if (result.status?.state) statusEl.textContent = result.status.state;
 }
 
-// ---- A2UI rendering ----
+// ---- A2UI rendering (inline in the chat timeline) ----
+// Each surfaceId gets its own block appended to the chat log when it is
+// created, so rendered UI sits in the conversation where the agent produced
+// it rather than in a separate panel.
+function mountSurface(surfaceId) {
+  const el = document.createElement("div");
+  el.className = "a2ui-surface";
+  el.dataset.surfaceId = surfaceId;
+  $("chatLog").appendChild(el);
+  const surface = { el, componentEls: new Map() };
+  surfaces.set(surfaceId, surface);
+  scrollChat();
+  return surface;
+}
+
 function renderA2UI(msg) {
   if (msg.createSurface) {
     const { surfaceId, catalogId: cid } = msg.createSurface;
     if (cid && cid !== catalogId) log("event", `warning: surface catalog ${cid} != registered ${catalogId}`);
-    surfaceEl = document.createElement("div");
-    surfaceEl.dataset.surfaceId = surfaceId;
-    $("surface").replaceChildren(surfaceEl);
-    componentEls.clear();
     log("event", `createSurface ${surfaceId}`);
-  } else if (msg.updateComponents) {
-    const { components } = msg.updateComponents;
-    if (!surfaceEl) {
-      surfaceEl = document.createElement("div");
-      $("surface").replaceChildren(surfaceEl);
-      componentEls.clear();
-    }
-    // Pass 1: create every component element (children are not attached yet).
-    const byId = new Map(components.map((c) => [c.id, c]));
-    components.forEach((c) => {
-      if (componentEls.has(c.id)) return; // already rendered (e.g. repeated update)
-      const renderer = renderers[c.component];
-      if (!renderer) {
-        log("event", `no renderer for component '${c.component}'`);
-        return;
-      }
-      const el = renderer(c);
-      el.dataset.cid = c.id;
-      componentEls.set(c.id, el);
-    });
-    // Pass 2: mount children into parents (parents may appear before children).
-    components.forEach((c) => {
-      const parent = componentEls.get(c.id);
-      if (!parent) return;
-      if (c.component === "Button") {
-        // A Button's child is its label Text — show the label's text on the button.
-        const label = componentEls.get(c.child);
-        if (label) parent.textContent = label.textContent;
-        return;
-      }
-      const key = CHILD_REF_KEYS[c.component];
-      const refs = key === "children" ? c.children || [] : c.child ? [c.child] : [];
-      refs.forEach((childId) => {
-        const child = componentEls.get(childId);
-        if (child) parent.appendChild(child);
-        else if (byId.has(childId)) log("event", `component '${childId}' has no renderer`);
-      });
-    });
-    // Attach root: find the component with no parent reference (children/child refs).
-    const refd = new Set();
-    components.forEach((c) => {
-      const key = CHILD_REF_KEYS[c.component];
-      const refs = key === "children" ? c.children || [] : c.child ? [c.child] : [];
-      refs.forEach((id) => refd.add(id));
-    });
-    const root = components.find((c) => !refd.has(c.id));
-    if (root) {
-      const el = componentEls.get(root.id);
-      if (el) surfaceEl.replaceChildren(el);
-    }
-    log("event", `updateComponents (${components.length} components)`);
+    mountSurface(surfaceId);
+    return;
   }
+  if (!msg.updateComponents) return;
+
+  const { surfaceId, components } = msg.updateComponents;
+  // updateComponents without a preceding createSurface still renders — mount
+  // the surface block on demand instead of dropping the update.
+  const { el: surfaceEl, componentEls } = surfaces.get(surfaceId) || mountSurface(surfaceId);
+
+  // Pass 1: create every component element (children are not attached yet).
+  const byId = new Map(components.map((c) => [c.id, c]));
+  components.forEach((c) => {
+    if (componentEls.has(c.id)) return; // already rendered (e.g. repeated update)
+    const renderer = renderers[c.component];
+    if (!renderer) {
+      log("event", `no renderer for component '${c.component}'`);
+      return;
+    }
+    const el = renderer(c);
+    el.dataset.cid = c.id;
+    componentEls.set(c.id, el);
+  });
+  // Pass 2: mount children into parents (parents may appear before children).
+  components.forEach((c) => {
+    const parent = componentEls.get(c.id);
+    if (!parent) return;
+    if (c.component === "Button") {
+      // A Button's child is its label Text — show the label's text on the button.
+      const label = componentEls.get(c.child);
+      if (label) parent.textContent = label.textContent;
+      return;
+    }
+    const key = CHILD_REF_KEYS[c.component];
+    const refs = key === "children" ? c.children || [] : c.child ? [c.child] : [];
+    refs.forEach((childId) => {
+      const child = componentEls.get(childId);
+      if (child) parent.appendChild(child);
+      else if (byId.has(childId)) log("event", `component '${childId}' has no renderer`);
+    });
+  });
+  // Attach root: find the component with no parent reference (children/child refs).
+  const refd = new Set();
+  components.forEach((c) => {
+    const key = CHILD_REF_KEYS[c.component];
+    const refs = key === "children" ? c.children || [] : c.child ? [c.child] : [];
+    refs.forEach((id) => refd.add(id));
+  });
+  const root = components.find((c) => !refd.has(c.id));
+  if (root) {
+    const el = componentEls.get(root.id);
+    if (el) surfaceEl.replaceChildren(el);
+  }
+  log("event", `updateComponents (${components.length} components)`);
 }
 
 function log(cls, text) {
@@ -222,13 +236,18 @@ function log(cls, text) {
   div.className = `msg ${cls}`;
   div.textContent = text;
   $("chatLog").appendChild(div);
-  $("chatLog").scrollTop = $("chatLog").scrollHeight;
+  scrollChat();
+}
+function scrollChat() {
+  const el = $("chatLog");
+  el.scrollTop = el.scrollHeight;
 }
 function logEvent(text) {
   log("event", `⏎ ${text}`);
 }
 
 async function init() {
+  log("event", "Ask for UI or a text question to get started.");
   try {
     const card = await (await fetch(CARD_URL)).json();
     log("event", `Agent card: ${card.name}`);

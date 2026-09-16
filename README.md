@@ -10,7 +10,8 @@ A standalone browser client for the
 - sends A2A JSON-RPC **`message/send`** messages with the A2UI extension and
   `a2uiClientCapabilities.supportedCatalogIds`,
 - renders returned A2UI `DataPart`s (`createSurface` / `updateComponents`)
-  into the page.
+  inline in a single chat timeline, so agent text and rendered UI appear
+  together in one scrolling transcript (each `surfaceId` gets its own block).
 
 Pure static HTML/JS — no build step.
 
@@ -50,7 +51,7 @@ Prereqs: `gcloud` + `docker` on PATH.
 # office (labs-gcp-msls-16495-1782829337 / us-east1)
 ./deploy.sh
 
-# personal (adk-tut-499512 / us-central1) — deploy.personal.sh is gitignored
+# personal (adk-tut-508714 / us-central1) — deploy.personal.sh is gitignored
 ./deploy.personal.sh
 ```
 

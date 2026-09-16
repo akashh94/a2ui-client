@@ -9,11 +9,10 @@
     header { background: #fff; border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
     header h1 { font-size: 18px; margin: 0; flex: 1; }
     .status { font-size: 12px; color: #5f6368; }
-    main { max-width: 860px; margin: 20px auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0 20px; }
-    @media (max-width: 720px) { main { grid-template-columns: 1fr; } }
+    main { max-width: 860px; margin: 20px auto; padding: 0 20px; }
     .panel { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
     .panel h2 { font-size: 14px; margin: 0 0 12px; color: #202124; text-transform: uppercase; letter-spacing: 0.5px; }
-    #chatLog { height: 340px; overflow-y: auto; font-size: 13px; }
+    #chatLog { height: min(72vh, 640px); overflow-y: auto; font-size: 13px; }
     .msg { margin: 6px 0; padding: 6px 8px; border-radius: 6px; white-space: pre-wrap; }
     .msg.user { background: #e8f0fe; }
     .msg.agent { background: #f1f3f4; }
@@ -22,7 +21,8 @@
     .inputRow { display: flex; gap: 8px; margin-top: 8px; }
     .inputRow input { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
     .inputRow button, .btn { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--brand); color: #fff; cursor: pointer; }
-    #surface { min-height: 260px; border: 1px dashed var(--border); border-radius: 8px; padding: 12px; font-size: 14px; overflow: auto; }
+    /* One rendered surface, mounted inline in the chat timeline. */
+    .a2ui-surface { border: 1px dashed var(--border); border-radius: 8px; padding: 12px; margin: 8px 0; background: #fff; font-size: 14px; overflow-x: auto; }
     .a2ui-text { margin: 4px 0; }
     .a2ui-text.h1 { font-size: 24px; font-weight: 600; }
     .a2ui-text.h2 { font-size: 20px; font-weight: 600; }
@@ -38,7 +38,6 @@
     .a2ui-btn.default { background: #fff; border: 1px solid var(--border); }
     .a2ui-btn.borderless { background: none; border: 0; color: var(--brand); }
     .a2ui-action { color: #5f6368; font-size: 12px; margin-top: 8px; }
-    .cid { font-family: monospace; font-size: 11px; color: #80868b; }
   </style>
 </head>
 <body>
@@ -58,10 +57,6 @@
         <button class="btn" id="demoA2UI">A2UI demo</button>
         <button class="btn" id="demoText">Text question</button>
       </div>
-    </section>
-    <section class="panel">
-      <h2>Rendered Surface</h2>
-      <div id="surface"><span class="cid">(nothing yet — ask the agent to show UI)</span></div>
     </section>
   </main>
 
