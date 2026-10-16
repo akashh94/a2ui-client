@@ -2,12 +2,6 @@ FROM python:3.12-slim
 
 WORKDIR /srv
 
-# The a2ui-agent URL this client talks to (per-environment, set by deploy.sh
-# from a2ui.deploy.env / deploy.personal.env). Injected as a global so
-# client.js can pick it up; overridable at runtime with /?agent=<url>.
-ARG AGENT_URL
-RUN printf 'window.A2UI_AGENT_URL = "%s";\n' "$AGENT_URL" > agent_url.js
-
 COPY index.html .
 COPY catalog.html .
 COPY a2ui.css .
@@ -17,6 +11,7 @@ COPY catalog.js .
 COPY serve.py .
 
 EXPOSE 8080
-# Cloud Run injects PORT. serve.py is http.server with Cache-Control: no-store
-# so a redeploy takes effect without a hard refresh.
+# Cloud Run injects PORT. serve.py serves the static files and generates
+# /agent_url.js from the AGENT_URL env var, with Cache-Control: no-store so a
+# redeploy takes effect without a hard refresh.
 CMD ["python", "serve.py"]

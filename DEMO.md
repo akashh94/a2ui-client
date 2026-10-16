@@ -22,8 +22,9 @@ Everything starts from a single base URL, resolved in this order:
    different agent without redeploying. Set in `index.html` / `catalog.html`
    **after** `agent_url.js` loads (loading it before meant the injected value
    clobbered the override — see the note in `index.html`).
-2. **`agent_url.js`** — written into the image at build time from the
-   `AGENT_URL` build arg (`Dockerfile`, driven by `deploy*.sh`).
+2. **`agent_url.js`** — generated at runtime by `serve.py` from the `AGENT_URL`
+   env var, which `deploy*.sh` sets on the Cloud Run service. No rebuild is
+   needed to point the image at a different agent.
 
 There is deliberately **no hardcoded fallback**. A deploy that forgets to inject
 the URL fails loudly at discovery rather than silently talking to the wrong
@@ -348,4 +349,4 @@ surface during a demo into a readable line in the chat log.
 | `a2ui-render.js` | The renderers and the surface host (shared with the gallery) |
 | `a2ui.css` | Component styling — the other half of "what a component looks like" |
 | `catalog.html` / `catalog.js` | The no-agent component gallery |
-| `agent_url.js` | Generated at build time from the `AGENT_URL` build arg |
+| `agent_url.js` | Generated at runtime by `serve.py` from the `AGENT_URL` env var |

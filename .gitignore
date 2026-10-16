@@ -11,5 +11,6 @@ venv/
 .ruff_cache/
 
 # Personal deployment config — never commit
+build.personal.sh
 deploy.personal.env
 deploy.personal.sh

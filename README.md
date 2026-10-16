@@ -22,9 +22,10 @@ The agent is a **separate service**. Its base URL is resolved in this order:
 1. **Per-page override** — open
    `https://<client-url>/?agent=https://<agent-url>`; the query param sets
    `window.A2UI_AGENT_URL` before `client.js` loads.
-2. **Deploy-time injection** — `deploy.sh` / `deploy.personal.sh` pass the
+2. **Runtime injection** — `deploy.sh` / `deploy.personal.sh` set the
    environment's `AGENT_URL` (from `a2ui.deploy.env` / `deploy.personal.env`)
-   to `docker build --build-arg`, which writes it into `agent_url.js`.
+   as a Cloud Run env var, and `serve.py` generates `/agent_url.js` from it.
+   The same image therefore serves every environment.
 
 There is **no hardcoded fallback**: a deploy that forgets to inject the URL
 leaves `AGENT_URL` empty and discovery fails loudly, rather than silently
@@ -39,19 +40,26 @@ it).
 ## Run locally
 
 ```bash
-python -m http.server 8080
-# open http://localhost:8080/?agent=https://<agent-url>
+AGENT_URL=https://<agent-url> python serve.py
+# open http://localhost:8080/
 ```
+
+With a plain static server instead (`python -m http.server 8080`), `serve.py`
+isn't running, so point the page at the agent explicitly:
+`http://localhost:8080/?agent=https://<agent-url>`.
 
 ## Deploy (Cloud Run)
 
-Prereqs: `gcloud` + `docker` on PATH.
+Prereqs: `gcloud` on PATH (the image is built by Cloud Build, so no local
+Docker is required).
 
 ```bash
 # office (labs-gcp-msls-16495-1782829337 / us-east1)
-./deploy.sh
+./build.sh            # Cloud Build: build + push the image
+./deploy.sh           # deploy that image to Cloud Run
 
-# personal (adk-tut-508714 / us-central1) — deploy.personal.sh is gitignored
+# personal (adk-tut-508714 / us-central1) — *.personal.* are gitignored
+./build.personal.sh
 ./deploy.personal.sh
 ```
 
@@ -64,6 +72,9 @@ and redeploy the agent.
 |---|---|
 | `index.html` | The page + inline `?agent=` override script |
 | `client.js` | Discovery, catalog registration, A2A send, A2UI rendering |
-| `Dockerfile` | Static container (`python -m http.server`, honors `$PORT`) |
-| `deploy.sh` / `a2ui.deploy.env` | Office Cloud Run deploy |
-| `deploy.personal.sh` / `deploy.personal.env` | Personal deploy (gitignored) |
+| `a2ui-render.js` | Shared component renderers + surface host |
+| `serve.py` | Static server (`no-store`) that generates `/agent_url.js` from `AGENT_URL` |
+| `Dockerfile` | Static container (`python serve.py`, honors `$PORT`) |
+| `build.sh` / `a2ui.deploy.env` | Office: Cloud Build + push the image |
+| `deploy.sh` | Office: deploy that image to Cloud Run |
+| `build.personal.sh` / `deploy.personal.sh` / `deploy.personal.env` | Personal equivalents (gitignored) |
