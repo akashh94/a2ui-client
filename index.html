@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <title>A2UI Demo Client</title>
+  <!-- Tokens + component styles are shared with catalog.html. -->
+  <link rel="stylesheet" href="a2ui.css" />
   <style>
-    :root { --brand: #0b57d0; --border: #dadce0; --bg: #f8f9fa; }
     body { font-family: Roboto, system-ui, sans-serif; margin: 0; background: var(--bg); }
     header { background: #fff; border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
     header h1 { font-size: 18px; margin: 0; flex: 1; }
@@ -21,29 +22,16 @@
     .inputRow { display: flex; gap: 8px; margin-top: 8px; }
     .inputRow input { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
     .inputRow button, .btn { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--brand); color: #fff; cursor: pointer; }
-    /* One rendered surface, mounted inline in the chat timeline. */
-    .a2ui-surface { border: 1px dashed var(--border); border-radius: 8px; padding: 12px; margin: 8px 0; background: #fff; font-size: 14px; overflow-x: auto; }
-    .a2ui-text { margin: 4px 0; }
-    .a2ui-text.h1 { font-size: 24px; font-weight: 600; }
-    .a2ui-text.h2 { font-size: 20px; font-weight: 600; }
-    .a2ui-text.h3 { font-size: 17px; font-weight: 600; }
-    .a2ui-text.h4 { font-size: 15px; font-weight: 600; }
-    .a2ui-text.caption { color: #5f6368; font-size: 12px; }
-    .a2ui-row { display: flex; gap: 8px; }
-    .a2ui-col { display: flex; flex-direction: column; gap: 8px; }
-    .a2ui-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
-    .a2ui-card .a2ui-title { font-weight: 600; margin-bottom: 8px; }
-    .a2ui-btn { padding: 8px 14px; border-radius: 6px; cursor: pointer; font: inherit; }
-    .a2ui-btn.primary { background: var(--brand); color: #fff; border: 0; }
-    .a2ui-btn.default { background: #fff; border: 1px solid var(--border); }
-    .a2ui-btn.borderless { background: none; border: 0; color: var(--brand); }
-    .a2ui-action { color: #5f6368; font-size: 12px; margin-top: 8px; }
+    a.btn { text-decoration: none; display: inline-block; }
+    /* Chat-specific: separate consecutive surfaces in the timeline. */
+    #chatLog .a2ui-surface { margin: 8px 0; }
   </style>
 </head>
 <body>
   <header>
     <h1>A2UI Demo Client</h1>
     <span class="status" id="status">connecting…</span>
+    <a class="btn" href="catalog.html">Catalog →</a>
   </header>
   <main>
     <section class="panel">
@@ -60,13 +48,15 @@
     </section>
   </main>
 
+  <script src="agent_url.js"></script>
   <script>
-    // Optional: /?agent=https://<agent-url> overrides the injected default
-    // (agent_url.js, set at deploy time) and the fallback in client.js.
+    // Optional: /?agent=https://<agent-url> overrides the URL injected at deploy
+    // time (agent_url.js). This must run AFTER agent_url.js, which assigns
+    // unconditionally — loading it first meant the query param was clobbered.
     const agentParam = new URLSearchParams(location.search).get("agent");
     if (agentParam) window.A2UI_AGENT_URL = agentParam;
   </script>
-  <script src="agent_url.js"></script>
+  <script src="a2ui-render.js"></script>
   <script src="client.js"></script>
 </body>
 </html>

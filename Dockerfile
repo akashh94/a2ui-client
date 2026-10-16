@@ -9,7 +9,11 @@ ARG AGENT_URL
 RUN printf 'window.A2UI_AGENT_URL = "%s";\n' "$AGENT_URL" > agent_url.js
 
 COPY index.html .
+COPY catalog.html .
+COPY a2ui.css .
+COPY a2ui-render.js .
 COPY client.js .
+COPY catalog.js .
 COPY serve.py .
 
 EXPOSE 8080

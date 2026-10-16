@@ -20,64 +20,19 @@ const statusEl = $("status");
 
 // ---- tiny state ----
 let catalogId = null;
-// surfaceId -> { el, componentEls }: each rendered surface lives inline in the
-// chat log, and multiple surfaces can coexist in the timeline.
-const surfaces = new Map();
 
-// ---- component renderers: catalog component name -> props => element ----
-// NOTE: renderers only CREATE the element. Children are attached afterwards in
-// a separate mount pass (renderA2UI), because components can be listed in any
-// order — a parent may be created before its children exist.
-const renderers = {
-  Text: (props) => {
-    const el = document.createElement("div");
-    el.className = `a2ui-text ${props.variant || "body"}`;
-    el.textContent = props.text ?? "";
-    return el;
-  },
-  Button: (props) => {
-    const el = document.createElement("button");
-    el.className = `a2ui-btn ${props.variant || "default"}`;
-    if (props.action?.event?.name) {
-      el.addEventListener("click", () => logEvent(`button clicked: ${props.action.event.name}`));
-    }
-    return el;
-  },
-  Row: (props) => {
-    const el = document.createElement("div");
-    el.className = "a2ui-row";
-    if (props.justify) el.style.justifyContent = justifyToCss(props.justify);
-    if (props.align) el.style.alignItems = alignToCss(props.align);
-    return el;
-  },
-  Column: (props) => {
-    const el = document.createElement("div");
-    el.className = "a2ui-col";
-    if (props.justify) el.style.justifyContent = justifyToCss(props.justify);
-    if (props.align) el.style.alignItems = alignToCss(props.align);
-    return el;
-  },
-  Card: (props) => {
-    const el = document.createElement("div");
-    el.className = "a2ui-card";
-    if (props.title) {
-      const t = document.createElement("div");
-      t.className = "a2ui-title";
-      t.textContent = props.title;
-      el.appendChild(t);
-    }
-    return el;
-  },
-};
-
-function justifyToCss(v) {
-  return { spaceBetween: "space-between", spaceAround: "space-around", spaceEvenly: "space-evenly" }[v] || v;
+// Rendering lives in a2ui-render.js, shared with the catalog gallery. The host
+// keeps per-surface state and appends each surface block to the chat timeline.
+const surfaceHost = A2UI.createSurfaceHost({
+  container: $("chatLog"),
+  getCatalogId: () => catalogId,
+  onEvent: (text) => log("event", text),
+  onSurfaceMounted: scrollChat,
+  onAction: (name) => logEvent(`button clicked: ${name}`),
+});
+function renderA2UI(msg) {
+  surfaceHost.render(msg);
 }
-function alignToCss(v) {
-  return v;
-}
-// Reference types that hold children by id: component name -> key holding the id(s).
-const CHILD_REF_KEYS = { Button: "child", Card: "child", Row: "children", Column: "children" };
 
 // ---- catalog registration ----
 async function loadCatalog() {
@@ -153,82 +108,6 @@ function handleTaskResult(result) {
     else if (p.kind === "data" && p.data) renderA2UI(p.data);
   });
   if (result.status?.state) statusEl.textContent = result.status.state;
-}
-
-// ---- A2UI rendering (inline in the chat timeline) ----
-// Each surfaceId gets its own block appended to the chat log when it is
-// created, so rendered UI sits in the conversation where the agent produced
-// it rather than in a separate panel.
-function mountSurface(surfaceId) {
-  const el = document.createElement("div");
-  el.className = "a2ui-surface";
-  el.dataset.surfaceId = surfaceId;
-  $("chatLog").appendChild(el);
-  const surface = { el, componentEls: new Map() };
-  surfaces.set(surfaceId, surface);
-  scrollChat();
-  return surface;
-}
-
-function renderA2UI(msg) {
-  if (msg.createSurface) {
-    const { surfaceId, catalogId: cid } = msg.createSurface;
-    if (cid && cid !== catalogId) log("event", `warning: surface catalog ${cid} != registered ${catalogId}`);
-    log("event", `createSurface ${surfaceId}`);
-    mountSurface(surfaceId);
-    return;
-  }
-  if (!msg.updateComponents) return;
-
-  const { surfaceId, components } = msg.updateComponents;
-  // updateComponents without a preceding createSurface still renders — mount
-  // the surface block on demand instead of dropping the update.
-  const { el: surfaceEl, componentEls } = surfaces.get(surfaceId) || mountSurface(surfaceId);
-
-  // Pass 1: create every component element (children are not attached yet).
-  const byId = new Map(components.map((c) => [c.id, c]));
-  components.forEach((c) => {
-    if (componentEls.has(c.id)) return; // already rendered (e.g. repeated update)
-    const renderer = renderers[c.component];
-    if (!renderer) {
-      log("event", `no renderer for component '${c.component}'`);
-      return;
-    }
-    const el = renderer(c);
-    el.dataset.cid = c.id;
-    componentEls.set(c.id, el);
-  });
-  // Pass 2: mount children into parents (parents may appear before children).
-  components.forEach((c) => {
-    const parent = componentEls.get(c.id);
-    if (!parent) return;
-    if (c.component === "Button") {
-      // A Button's child is its label Text — show the label's text on the button.
-      const label = componentEls.get(c.child);
-      if (label) parent.textContent = label.textContent;
-      return;
-    }
-    const key = CHILD_REF_KEYS[c.component];
-    const refs = key === "children" ? c.children || [] : c.child ? [c.child] : [];
-    refs.forEach((childId) => {
-      const child = componentEls.get(childId);
-      if (child) parent.appendChild(child);
-      else if (byId.has(childId)) log("event", `component '${childId}' has no renderer`);
-    });
-  });
-  // Attach root: find the component with no parent reference (children/child refs).
-  const refd = new Set();
-  components.forEach((c) => {
-    const key = CHILD_REF_KEYS[c.component];
-    const refs = key === "children" ? c.children || [] : c.child ? [c.child] : [];
-    refs.forEach((id) => refd.add(id));
-  });
-  const root = components.find((c) => !refd.has(c.id));
-  if (root) {
-    const el = componentEls.get(root.id);
-    if (el) surfaceEl.replaceChildren(el);
-  }
-  log("event", `updateComponents (${components.length} components)`);
 }
 
 function log(cls, text) {

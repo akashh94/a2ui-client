@@ -1,0 +1,33 @@
+/* A2UI component styles and design tokens.
+ *
+ * Shared by index.html (the chat client) and catalog.html (the gallery) so a
+ * component renders identically in both — the gallery is only meaningful if it
+ * shows what the chat client actually draws.
+ *
+ * These class names are the client half of the catalog contract: they line up
+ * with the component names the agent advertises in /catalog.json. */
+
+:root { --brand: #0b57d0; --border: #dadce0; --bg: #f8f9fa; }
+
+/* One rendered surface, mounted inline wherever the agent produced it. */
+.a2ui-surface { border: 1px dashed var(--border); border-radius: 8px; padding: 12px; background: #fff; font-size: 14px; overflow-x: auto; }
+
+.a2ui-text { margin: 4px 0; }
+.a2ui-text.h1 { font-size: 24px; font-weight: 600; }
+.a2ui-text.h2 { font-size: 20px; font-weight: 600; }
+.a2ui-text.h3 { font-size: 17px; font-weight: 600; }
+.a2ui-text.h4 { font-size: 15px; font-weight: 600; }
+.a2ui-text.caption { color: #5f6368; font-size: 12px; }
+
+.a2ui-row { display: flex; gap: 8px; }
+.a2ui-col { display: flex; flex-direction: column; gap: 8px; }
+
+.a2ui-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.a2ui-card .a2ui-title { font-weight: 600; margin-bottom: 8px; }
+
+.a2ui-btn { padding: 8px 14px; border-radius: 6px; cursor: pointer; font: inherit; }
+.a2ui-btn.primary { background: var(--brand); color: #fff; border: 0; }
+.a2ui-btn.default { background: #fff; border: 1px solid var(--border); }
+.a2ui-btn.borderless { background: none; border: 0; color: var(--brand); }
+
+.a2ui-action { color: #5f6368; font-size: 12px; margin-top: 8px; }
